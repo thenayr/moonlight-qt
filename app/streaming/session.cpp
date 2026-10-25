@@ -632,6 +632,7 @@ Session::Session(NvComputer* computer, NvApp& app, StreamingPreferences *prefere
       m_PortTestResults(0),
       m_OpusDecoder(nullptr),
       m_AudioRenderer(nullptr),
+      m_PassthroughRenderer(nullptr),
       m_AudioSampleCount(0),
       m_DropAudioEndTime(0)
 {
@@ -861,6 +862,10 @@ bool Session::initialize(QQuickWindow* qtWindow)
     m_AudioCallbacks.init = arInit;
     m_AudioCallbacks.cleanup = arCleanup;
     m_AudioCallbacks.decodeAndPlaySample = arDecodeAndPlaySample;
+    m_AudioCallbacks.initBitstream = arInitBitstream;
+    m_AudioCallbacks.playBitstream = arPlayBitstream;
+    // CAPABILITY_AUDIO_BITSTREAM_IEC61937 is added by validateLaunch() once
+    // testAudioPassthrough() shows an HDMI output will take the bitstream.
     m_AudioCallbacks.capabilities = getAudioRendererCapabilities(m_StreamConfig.audioConfiguration);
 
     SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
@@ -1398,6 +1403,12 @@ bool Session::validateLaunch(SDL_Window* testWindow)
     // If nothing worked, warn the user that audio will not work
     if (!audioTestPassed) {
         emitLaunchWarning(tr("Failed to open audio device. Audio will be unavailable during this session."));
+    }
+
+    // A host that agrees to passthrough sends no Opus, so only offer it when an
+    // HDMI output actually accepts the bitstream.
+    if (testAudioPassthrough()) {
+        m_AudioCallbacks.capabilities |= CAPABILITY_AUDIO_BITSTREAM_IEC61937;
     }
 
     // Check for unmapped gamepads

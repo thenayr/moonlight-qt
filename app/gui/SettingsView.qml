@@ -1641,6 +1641,28 @@ Flickable {
                     ToolTip.visible: hovered
                     ToolTip.text: qsTr("Mutes Moonlight's audio when you Alt+Tab out of the stream or click on a different window.")
                 }
+
+                CheckBox {
+                    id: audioPassthroughCheck
+                    width: parent.width
+                    text: qsTr("Dolby Atmos passthrough to HDMI (Vibepollo hosts)")
+                    font.pointSize: 12
+                    visible: SystemProperties.hasAudioPassthrough
+                    // Passthrough sends the host's audio to this device, so it can't
+                    // also play on the host PC.
+                    enabled: audioPcCheck.checked
+                    checked: StreamingPreferences.audioPassthrough
+                    onCheckedChanged: {
+                        StreamingPreferences.audioPassthrough = checked
+                    }
+
+                    ToolTip.delay: 1000
+                    ToolTip.timeout: 10000
+                    ToolTip.visible: hovered
+                    ToolTip.text: qsTr("Plays a Vibepollo host's Dolby Atmos bitstream through your receiver, TV or soundbar unchanged. " +
+                                       "Needs Dolby Atmos for home theater on the host and an HDMI output that PipeWire allows " +
+                                       "to pass through TrueHD. Other hosts still use normal audio.")
+                }
             }
         }
 

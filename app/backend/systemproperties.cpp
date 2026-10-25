@@ -111,6 +111,13 @@ SystemProperties::SystemProperties()
     hasPyroWave = false;
 #endif
 
+    // Audio bitstream passthrough plays through PipeWire, on Linux only.
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+    hasAudioPassthrough = true;
+#else
+    hasAudioPassthrough = false;
+#endif
+
     // These will be queried asynchronously to avoid blocking the UI
     hasHardwareAcceleration = true;
     rendererAlwaysFullScreen = false;

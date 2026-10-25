@@ -12,6 +12,8 @@
 #include "video/overlaymanager.h"
 #include "diagnostics/diagnosticcapture.h"
 
+class PipeWirePassthroughRenderer;
+
 class SupportedVideoFormatList : public QList<int>
 {
 public:
@@ -179,6 +181,10 @@ private:
 
     int getAudioRendererCapabilities(int audioConfiguration);
 
+    // Whether this session can play a host's IEC 61937 bitstream (Dolby Atmos)
+    // through HDMI. Emits a launch warning explaining why when it can't.
+    bool testAudioPassthrough();
+
     void getWindowDimensions(int& x, int& y,
                              int& width, int& height);
 
@@ -256,6 +262,12 @@ private:
     void arDecodeAndPlaySample(char* sampleData, int sampleLength);
 
     static
+    int arInitBitstream(int format, void* arContext, int arFlags);
+
+    static
+    void arPlayBitstream(const unsigned char* data, int length, int flags);
+
+    static
     int drSetup(int videoFormat, int width, int height, int frameRate, void*, int);
 
     static
@@ -313,6 +325,7 @@ private:
 
     OpusMSDecoder* m_OpusDecoder;
     IAudioRenderer* m_AudioRenderer;
+    PipeWirePassthroughRenderer* m_PassthroughRenderer;
     OPUS_MULTISTREAM_CONFIGURATION m_ActiveAudioConfig;
     OPUS_MULTISTREAM_CONFIGURATION m_OriginalAudioConfig;
     int m_AudioSampleCount;

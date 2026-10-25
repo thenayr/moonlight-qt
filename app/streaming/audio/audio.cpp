@@ -7,6 +7,10 @@
 
 #include "renderers/sdl.h"
 
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+#include "renderers/pwpassthrough.h"
+#endif
+
 #include <Limelight.h>
 
 #define TRY_INIT_RENDERER(renderer, opusConfig)        \
@@ -145,6 +149,86 @@ void Session::arCleanup()
 
     opus_multistream_decoder_destroy(s_ActiveSession->m_OpusDecoder);
     s_ActiveSession->m_OpusDecoder = nullptr;
+
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+    delete s_ActiveSession->m_PassthroughRenderer;
+    s_ActiveSession->m_PassthroughRenderer = nullptr;
+#endif
+}
+
+bool Session::testAudioPassthrough()
+{
+    if (!m_Preferences->audioPassthrough) {
+        return false;
+    }
+
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+    if (m_Preferences->playAudioOnHost) {
+        emitLaunchWarning(tr("Dolby Atmos passthrough is off because audio is set to play on the host PC."));
+        return false;
+    }
+
+    // Opening a real TrueHD stream is the only reliable test: PipeWire agrees the
+    // format only with an output that allows the codec and isn't already in use.
+    std::string reason;
+    if (!PipeWirePassthroughRenderer::probe(1500, reason)) {
+        SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough unavailable: %s", reason.c_str());
+        emitLaunchWarning(tr("Dolby Atmos passthrough is unavailable, so normal audio is used: %1")
+                              .arg(QString::fromStdString(reason)));
+        return false;
+    }
+
+    SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough: an HDMI output accepts TrueHD; offering it to the host");
+    return true;
+#else
+    return false;
+#endif
+}
+
+int Session::arInitBitstream(int format, void* /* arContext */, int /* arFlags */)
+{
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+    SDL_assert(s_ActiveSession->m_PassthroughRenderer == nullptr);
+
+    if (format == AUDIO_BITSTREAM_FORMAT_IEC61937) {
+        auto* renderer = new PipeWirePassthroughRenderer();
+        if (renderer->initialize()) {
+            s_ActiveSession->m_PassthroughRenderer = renderer;
+        }
+        else {
+            delete renderer;
+        }
+    }
+#else
+    Q_UNUSED(format);
+#endif
+
+    // Like arInit(), keep streaming without audio rather than failing the connection
+    if (s_ActiveSession->m_PassthroughRenderer == nullptr) {
+        SDL_LogError(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough couldn't start; the stream will have no audio");
+    }
+    return 0;
+}
+
+void Session::arPlayBitstream(const unsigned char* data, int length, int flags)
+{
+#ifdef HAVE_PIPEWIRE_PASSTHROUGH
+    Session* session = s_ActiveSession;
+    if (session->m_PassthroughRenderer == nullptr) {
+        return;
+    }
+
+    // A bitstream can't be attenuated, so muting sends the receiver silence
+    if (session->m_AudioMuted) {
+        return;
+    }
+
+    session->m_PassthroughRenderer->submit(data, length, flags);
+#else
+    Q_UNUSED(data);
+    Q_UNUSED(length);
+    Q_UNUSED(flags);
+#endif
 }
 
 void Session::arDecodeAndPlaySample(char* sampleData, int sampleLength)

@@ -3150,6 +3150,25 @@ backpressure. Audio startup intentionally discards an initial backlog of about
 500 ms; renderer reinitialization similarly prevents downtime becoming permanent
 queued audio latency. Muting can suppress audio processing without retiming VRR.
 
+Audio bitstream passthrough (Linux, added 2026-10-24) replaces Opus with the
+host's IEC 61937 stream for Vibepollo hosts that render Dolby Atmos for home
+theater (Dolby MAT). The contract is Vibepollo's
+`docs/audio-bitstream-protocol.md`. With the `audioPassthrough` preference on and
+host audio off, `Session::validateLaunch` runs `testAudioPassthrough()`, which
+opens a real PipeWire `audio/iec958` TrueHD stream and waits up to 1.5 s for
+PipeWire to agree a format; only then is `CAPABILITY_AUDIO_BITSTREAM_IEC61937`
+set, because a host that agrees sends no Opus at all. moonlight-common-c
+negotiates it in RTSP, receives payload type 100 through the same RTP queue,
+FEC and decryption, and rebuilds each frame (one 20 ms burst, 61440 bytes for
+MAT) for `arPlayBitstream`. [pwpassthrough.cpp](app/streaming/audio/renderers/pwpassthrough.cpp)
+queues frames without blocking (the common-c LBQ holds only 30 chunks), starts
+output after two frames, drops whole frames behind the playing one past six
+to bound drift latency, and writes zeros on underrun. PipeWire's ALSA sink
+opens the HDMI device as 8 ch / 192 kHz / S16 with the non-audio bit set; the
+output must allow TrueHD in `iec958.codecs`, and WirePlumber refuses the
+stream while another stream holds that output. libpipewire is `dlopen`ed.
+There is no A/V sync for this path beyond the bounded queue.
+
 Input goes from SDL handlers to common-library input APIs and a separate sender.
 
 Windows/Linux DualSense waveform feedback (updated 2026-09-19) runs separately

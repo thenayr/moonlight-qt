@@ -179,6 +179,7 @@ public:
     Q_PROPERTY(UIDisplayMode uiDisplayMode MEMBER uiDisplayMode NOTIFY uiDisplayModeChanged)
     Q_PROPERTY(bool swapMouseButtons MEMBER swapMouseButtons NOTIFY mouseButtonsChanged)
     Q_PROPERTY(bool muteOnFocusLoss MEMBER muteOnFocusLoss NOTIFY muteOnFocusLossChanged)
+    Q_PROPERTY(bool audioPassthrough MEMBER audioPassthrough NOTIFY audioPassthroughChanged)
     Q_PROPERTY(bool backgroundGamepad MEMBER backgroundGamepad NOTIFY backgroundGamepadChanged)
     Q_PROPERTY(bool reverseScrollDirection MEMBER reverseScrollDirection NOTIFY reverseScrollDirectionChanged)
     Q_PROPERTY(bool swapFaceButtons MEMBER swapFaceButtons NOTIFY swapFaceButtonsChanged)
@@ -226,6 +227,9 @@ public:
     bool showPerformanceOverlay;
     bool swapMouseButtons;
     bool muteOnFocusLoss;
+    // Pass a host's Dolby MAT (Atmos) bitstream to HDMI unchanged instead of
+    // decoding Opus. Linux with PipeWire only; see audio/renderers/pwpassthrough.
+    bool audioPassthrough;
     bool backgroundGamepad;
     bool reverseScrollDirection;
     bool swapFaceButtons;
@@ -278,6 +282,7 @@ signals:
     void showPerformanceOverlayChanged();
     void mouseButtonsChanged();
     void muteOnFocusLossChanged();
+    void audioPassthroughChanged();
     void backgroundGamepadChanged();
     void reverseScrollDirectionChanged();
     void swapFaceButtonsChanged();

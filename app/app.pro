@@ -76,6 +76,13 @@ unix:if(!macx|disable-prebuilts) {
         PKGCONFIG += opus
     }
 
+    # Dolby Atmos (IEC 61937) passthrough to HDMI through PipeWire
+    linux:!disable-pipewire-passthrough {
+        packagesExist(libpipewire-0.3) {
+            CONFIG += pipewire-passthrough
+        }
+    }
+
     !disable-ffmpeg {
         packagesExist(libavcodec) {
             PKGCONFIG += libavcodec libavutil libswscale
@@ -364,6 +371,17 @@ mmal {
 
         DEFINES += ALLOW_EGL_WITH_MMAL
     }
+}
+pipewire-passthrough {
+    message(PipeWire audio passthrough enabled)
+
+    DEFINES += HAVE_PIPEWIRE_PASSTHROUGH
+    # Headers only: libpipewire is loaded at runtime, so AppImages don't bundle
+    # it and machines without PipeWire just lack the option.
+    QMAKE_CXXFLAGS += $$system(pkg-config --cflags libpipewire-0.3)
+    SOURCES += streaming/audio/renderers/pwpassthrough.cpp
+    HEADERS += streaming/audio/renderers/pwpassthrough.h
+    LIBS += -ldl
 }
 libdrm {
     message(DRM renderer selected)
