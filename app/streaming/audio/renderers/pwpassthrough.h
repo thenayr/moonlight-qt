@@ -35,8 +35,11 @@ public:
     bool initialize();
 
     // Opens a TrueHD passthrough stream and waits up to timeoutMs for PipeWire
-    // to agree a format with an output. On failure, reason says why.
-    static bool probe(int timeoutMs, std::string& reason);
+    // to agree a format with an output. On failure, reason says why, and
+    // linkFailed says whether PipeWire rejected the link outright (as when the
+    // output is still busy with a stream that is closing), which is worth
+    // retrying, rather than no output taking the format.
+    static bool probe(int timeoutMs, std::string& reason, bool& linkFailed);
 
     // Queues one rebuilt frame (AUDIO_BITSTREAM_FLAG_* flags). Never blocks;
     // called on moonlight-common-c's audio thread.

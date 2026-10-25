@@ -170,8 +170,18 @@ bool Session::testAudioPassthrough()
 
     // Opening a real TrueHD stream is the only reliable test: PipeWire agrees the
     // format only with an output that allows the codec and isn't already in use.
+    // testAudio() has just opened and closed a PCM stream on that output, and
+    // PipeWire tears links down asynchronously, so WirePlumber can still find it
+    // busy and fail the link ("target not found"). Retry those failures briefly.
     std::string reason;
-    if (!PipeWirePassthroughRenderer::probe(1500, reason)) {
+    bool linkFailed = false;
+    bool accepted = PipeWirePassthroughRenderer::probe(1500, reason, linkFailed);
+    for (int retry = 0; !accepted && linkFailed && retry < 4; retry++) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough: %s; retrying", reason.c_str());
+        SDL_Delay(250);
+        accepted = PipeWirePassthroughRenderer::probe(1500, reason, linkFailed);
+    }
+    if (!accepted) {
         SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough unavailable: %s", reason.c_str());
         emitLaunchWarning(tr("Dolby Atmos passthrough is unavailable, so normal audio is used: %1")
                               .arg(QString::fromStdString(reason)));

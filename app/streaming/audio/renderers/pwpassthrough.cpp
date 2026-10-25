@@ -403,8 +403,9 @@ void PipeWirePassthroughRenderer::waitForFormat(int timeoutMs)
                         [this] { return m_FormatAgreed || m_StreamFailed; });
 }
 
-bool PipeWirePassthroughRenderer::probe(int timeoutMs, std::string& reason)
+bool PipeWirePassthroughRenderer::probe(int timeoutMs, std::string& reason, bool& linkFailed)
 {
+    linkFailed = false;
     PipeWirePassthroughRenderer renderer;
     if (!renderer.initialize()) {
         reason = "libpipewire couldn't be loaded";
@@ -422,6 +423,7 @@ bool PipeWirePassthroughRenderer::probe(int timeoutMs, std::string& reason)
         return true;
     }
     if (renderer.m_StreamFailed) {
+        linkFailed = true;
         reason = "PipeWire couldn't connect it (" + renderer.m_StreamError + ")";
     }
     else {
