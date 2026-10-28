@@ -19,8 +19,10 @@ namespace {
 
 // Frames queued before output starts, and the most allowed before the oldest
 // are dropped to bound latency when the host's clock runs ahead of HDMI's.
-constexpr size_t kPrebufferFrames = 2;
-constexpr size_t kMaxQueuedFrames = 6;
+// Three 20 ms frames cover a FEC block that completes late from the host's
+// resent copies (moonlight-common-c waits up to 30 ms for them).
+constexpr size_t kPrebufferFrames = 3;
+constexpr size_t kMaxQueuedFrames = 8;
 
 // IEC 61937 burst data types (Pc & 0x7F)
 constexpr int kBurstTypeAc3 = 1;
