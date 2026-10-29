@@ -1,5 +1,6 @@
 #pragma once
 
+#include <chrono>
 #include <condition_variable>
 #include <cstdint>
 #include <deque>
@@ -75,7 +76,11 @@ private:
     bool m_StreamFailed;
     std::string m_StreamError;
 
+    // When the stream was opened, to reopen one WirePlumber never linked
+    std::chrono::steady_clock::time_point m_OpenedAt;
+
     uint32_t m_Underruns;
     uint32_t m_DroppedFrames;
+    uint32_t m_Reopens;
     bool m_LoggedUnknownBurst;
 };

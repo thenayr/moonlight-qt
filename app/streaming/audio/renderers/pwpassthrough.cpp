@@ -24,6 +24,9 @@ namespace {
 constexpr size_t kPrebufferFrames = 3;
 constexpr size_t kMaxQueuedFrames = 8;
 
+// How long an open stream may wait for WirePlumber to link it to an output
+constexpr std::chrono::milliseconds kRelinkTimeout(2000);
+
 // IEC 61937 burst data types (Pc & 0x7F)
 constexpr int kBurstTypeAc3 = 1;
 constexpr int kBurstTypeEac3 = 21;
@@ -214,6 +217,7 @@ PipeWirePassthroughRenderer::PipeWirePassthroughRenderer()
       m_StreamFailed(false),
       m_Underruns(0),
       m_DroppedFrames(0),
+      m_Reopens(0),
       m_LoggedUnknownBurst(false)
 {
 }
@@ -232,6 +236,10 @@ PipeWirePassthroughRenderer::~PipeWirePassthroughRenderer()
         SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION,
                     "Audio passthrough: %u underruns, %u frames dropped to bound latency",
                     m_Underruns, m_DroppedFrames);
+    }
+    if (m_Reopens) {
+        SDL_LogInfo(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough: reopened the stream %u times to get it linked",
+                    m_Reopens);
     }
     delete m_StreamListener;
 }
@@ -313,6 +321,7 @@ bool PipeWirePassthroughRenderer::openStream(Container container)
         m_StreamFailed = false;
         m_StreamError.clear();
     }
+    m_OpenedAt = std::chrono::steady_clock::now();
 
     struct pw_properties* props = pw->properties_new(
         PW_KEY_MEDIA_TYPE, "Audio",
@@ -465,8 +474,26 @@ void PipeWirePassthroughRenderer::submit(const unsigned char* data, int length, 
             return;
         }
 
+        // A stream WirePlumber never linked (or later unlinked) stays silent for
+        // the whole session, as when it raced the probe's stream being torn down.
+        // Reopen it so it's linked again.
+        bool relink = false;
+        if (container == m_Container) {
+            std::lock_guard<std::mutex> lock(m_Lock);
+            relink = m_StreamFailed ||
+                     (!m_FormatAgreed && std::chrono::steady_clock::now() - m_OpenedAt > kRelinkTimeout);
+            // Retries repeat every kRelinkTimeout while no output takes it; log the first few
+            if (relink && m_Reopens < 5) {
+                SDL_LogWarn(SDL_LOG_CATEGORY_APPLICATION, "Audio passthrough: stream not linked (%s); reopening it",
+                            m_StreamFailed ? m_StreamError.c_str() : "no format after 2 s");
+            }
+        }
+
         // A new container (e.g. AC-3 after MAT) needs a stream with that format
-        if (container != m_Container) {
+        if (container != m_Container || relink) {
+            if (relink) {
+                m_Reopens++;
+            }
             closeStream();
             if (!openStream(container)) {
                 return;
